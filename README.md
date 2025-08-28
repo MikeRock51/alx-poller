@@ -4,10 +4,12 @@ A modern, full-featured polling application built with Next.js 15, TypeScript, a
 
 ## Features
 
-### 🔐 Authentication
-- **User Registration**: Sign up with email and password
-- **User Login**: Secure authentication flow
-- **Profile Management**: Update user information and settings
+### 🔐 Authentication (Supabase)
+- **User Registration**: Sign up with email and password verification
+- **User Login**: Secure authentication with form validation
+- **Profile Management**: Update user information and account settings
+- **Protected Routes**: Automatic redirects for authenticated/unauthenticated users
+- **Session Management**: Persistent login sessions across browser refreshes
 
 ### 🗳️ Poll Management
 - **Create Polls**: Build custom polls with multiple options
@@ -25,8 +27,10 @@ A modern, full-featured polling application built with Next.js 15, TypeScript, a
 
 - **Framework**: Next.js 15 with App Router
 - **Language**: TypeScript
+- **Authentication**: Supabase Auth
 - **Styling**: Tailwind CSS v4
 - **UI Components**: Shadcn/UI
+- **Form Handling**: React Hook Form + Zod
 - **Icons**: Lucide React (via Shadcn)
 - **Development**: ESLint, Prettier
 
@@ -63,6 +67,38 @@ lib/
 ### Prerequisites
 - Node.js 18+
 - npm, yarn, pnpm, or bun
+- A Supabase account and project
+
+### Supabase Setup
+
+1. **Create a Supabase Project**
+   - Go to [supabase.com](https://supabase.com) and create an account
+   - Click "New Project" and fill in your project details
+   - Wait for the project to be fully initialized
+
+2. **Get Your Project Credentials**
+   - Go to your project's dashboard
+   - Navigate to "Settings" → "API"
+   - Copy your project URL and anon key
+
+3. **Set Up Environment Variables**
+   - Create a `.env.local` file in your project root
+   - Add your Supabase credentials:
+   ```bash
+   NEXT_PUBLIC_SUPABASE_URL=your-supabase-url-here
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key-here
+   ```
+
+4. **Configure Authentication**
+   - In your Supabase dashboard, go to "Authentication" → "Providers"
+   - Make sure "Email" is enabled
+   - Configure the site URL (your development/production URL)
+   - Set up any additional authentication methods if desired
+
+5. **Configure Redirect URLs**
+   - In "Authentication" → "URL Configuration"
+   - Add your development URL (e.g., `http://localhost:3000`)
+   - Add your production URL when deploying
 
 ### Installation
 
