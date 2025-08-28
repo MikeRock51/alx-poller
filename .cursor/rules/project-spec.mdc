@@ -39,6 +39,70 @@ The project uses the following technologies. Do not introduce new libraries or f
 - Do not create a separate API route handler and use fetch on the client side to submit form data. Use Server Actions instead.
 - Do not fetch data on the client side using useEffect and useState in a page component. Fetch data directly in a Server Component.
 
+## Core Implementation Patterns
+
+### 1. Folder Structure & Component Organization
+- **Route-based structure**: Use Next.js App Router with `/app` directory for all routes
+- **Component organization**:
+  ```
+  /components/
+    /ui/           # shadcn/ui reusable components (button, input, card, etc.)
+    /auth/         # Authentication-specific components
+    /polls/        # Poll-related components
+  ```
+- **Utility organization**:
+  ```
+  /lib/
+    /supabase/    # Database client configurations (server.ts, client.ts)
+    /auth/         # Authentication context and utilities
+    /utils.ts      # Shared utility functions
+  ```
+- **Always use absolute imports** with `@/` prefix for clean, maintainable imports
+
+### 2. Form Handling Pattern
+- **Always use react-hook-form** for form management with Zod schema validation
+- **Schema-first approach**: Define Zod schemas first, then infer TypeScript types
+- **Standard form structure**:
+  ```typescript
+  const formSchema = z.object({
+    fieldName: z.string().validationRule("Error message")
+  });
+
+  type FormData = z.infer<typeof formSchema>;
+
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
+    resolver: zodResolver(formSchema)
+  });
+  ```
+- **Error handling**: Display validation errors below each input field
+- **Loading states**: Show loading indicators during form submission
+
+### 3. Supabase Integration Pattern
+- **Server-side client**: Use `createServerClient` from `@supabase/ssr` for server components and server actions
+- **Client-side client**: Use standard `createClient` for client components that need database access
+- **Environment variables**: Always load Supabase keys from environment variables:
+  ```typescript
+  process.env.NEXT_PUBLIC_SUPABASE_URL!
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  ```
+- **Cookie handling**: Implement proper SSR cookie management for auth state persistence
+
+### 4. Authentication & User Management
+- **Context-based auth**: Use React Context (`AuthProvider`) for global auth state management
+- **Auth methods**: Implement signIn, signUp, signOut, and resetPassword in the context
+- **Protected routes**: Check authentication state in components and redirect as needed
+- **Error handling**: Provide user-friendly error messages for auth failures
+- **Loading states**: Show loading indicators during auth operations
+
+### 5. UI Component Patterns
+- **shadcn/ui components**: Use pre-built components from shadcn/ui library for consistency
+- **Component variants**: Leverage `class-variance-authority` (cva) for component variants
+- **Styling approach**:
+  - Use Tailwind CSS classes for styling
+  - Apply conditional classes for error states: `className={errors.field ? "border-red-500" : ""}`
+  - Use consistent color schemes and spacing
+- **Accessibility**: Ensure proper ARIA labels and keyboard navigation support
+
 ## Verification Checklist
 Before finalizing your response, you MUST verify the following:
 
@@ -47,3 +111,7 @@ Before finalizing your response, you MUST verify the following:
 - Is the Supabase client used for all database interactions?
 - Are shadcn/ui components used for the UI where appropriate?
 - Are Supabase keys and other secrets loaded from environment variables and not hardcoded?
+- Are forms implemented using react-hook-form with Zod validation?
+- Is authentication handled through the React Context pattern?
+- Are components organized following the established folder structure?
+- Are absolute imports used consistently throughout the codebase?
