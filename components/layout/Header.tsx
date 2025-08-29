@@ -5,12 +5,18 @@ import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth/context";
 import { LogOut, Menu, X, BarChart3, Plus } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export function Header() {
   const pathname = usePathname();
-  const { user, signOut } = useAuth();
+  const { user, signOut, loading } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  // Prevent hydration mismatch by only rendering after component mounts
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleSignOut = async () => {
     await signOut();
@@ -29,8 +35,45 @@ export function Header() {
     return pathname.startsWith(href);
   };
 
+  // Show loading state during SSR to prevent hydration mismatch
+  if (!mounted || loading) {
+    return (
+      <header
+        className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50"
+        suppressHydrationWarning
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            {/* Logo */}
+            <Link href="/" className="flex items-center space-x-2">
+              <div className="flex items-center justify-center w-8 h-8 bg-blue-600 rounded-lg">
+                <BarChart3 className="h-5 w-5 text-white" />
+              </div>
+              <span className="text-xl font-bold text-gray-900">Poller</span>
+            </Link>
+
+            {/* Loading state for navigation */}
+            <div className="hidden md:flex items-center space-x-8">
+              <div className="h-4 w-16 bg-gray-200 animate-pulse rounded"></div>
+              <div className="h-4 w-16 bg-gray-200 animate-pulse rounded"></div>
+              <div className="h-4 w-20 bg-gray-200 animate-pulse rounded"></div>
+            </div>
+
+            {/* Mobile menu button placeholder */}
+            <div className="md:hidden">
+              <div className="h-8 w-8 bg-gray-200 animate-pulse rounded"></div>
+            </div>
+          </div>
+        </div>
+      </header>
+    );
+  }
+
   return (
-    <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
+    <header
+      className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50"
+      suppressHydrationWarning
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
