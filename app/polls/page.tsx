@@ -1,8 +1,7 @@
 import { getPolls } from "@/lib/actions/polls";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
-import type { Poll } from "@/types";
+import { PollCard } from "@/components/polls/PollCard";
 
 export default async function PollsPage() {
   const result = await getPolls();
@@ -58,40 +57,33 @@ export default async function PollsPage() {
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
-          {polls.map((poll) => (
-            <Card key={poll.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <CardTitle className="text-xl">{poll.title}</CardTitle>
-                {poll.description && (
-                  <CardDescription>{poll.description}</CardDescription>
-                )}
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 mb-4">
-                  {poll.options.slice(0, 3).map((option) => (
-                    <div key={option.id} className="flex justify-between text-sm">
-                      <span>{option.optionText}</span>
-                      <span className="text-gray-500">{option.votes} votes</span>
-                    </div>
-                  ))}
-                  {poll.options.length > 3 && (
-                    <div className="text-sm text-gray-500">
-                      +{poll.options.length - 3} more options
-                    </div>
-                  )}
-                </div>
-                <div className="flex justify-between items-center text-sm text-gray-500 mb-4">
-                  <span>{poll.totalVotes} total votes</span>
-                  <span>{poll.createdAt.toLocaleDateString()}</span>
-                </div>
-                <Link href={`/polls/${poll.id}`}>
-                  <Button variant="outline" className="w-full">
-                    View Poll
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          ))}
+          {polls.map((poll) => {
+            // Transform the poll data to match PollCard interface
+            const pollCardData = {
+              id: poll.id,
+              title: poll.title,
+              description: poll.description,
+              created_at: poll.createdAt.toISOString(),
+              is_public: poll.isPublic,
+              expires_at: poll.expiresAt?.toISOString(),
+              is_active: poll.isActive,
+              poll_options: poll.options.map(option => ({
+                id: option.id,
+                option_text: option.optionText,
+                display_order: option.displayOrder
+              })),
+              total_votes: poll.totalVotes
+            };
+
+            return (
+              <PollCard
+                key={poll.id}
+                poll={pollCardData}
+                variant="default"
+                showViewButton={true}
+              />
+            );
+          })}
         </div>
 
         {polls.length === 0 && (

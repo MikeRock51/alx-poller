@@ -1,22 +1,17 @@
-"use client";
-
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useAuth } from "@/lib/auth/context";
+import { RecentPolls } from "@/components/dashboard/RecentPolls";
+import { createClient } from "@/lib/supabase/server";
 
-export default function Home() {
-  const { user, loading } = useAuth();
+async function getUser() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  return user;
+}
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="flex items-center justify-center min-h-[80vh]">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-        </div>
-      </div>
-    );
-  }
+export default async function Home() {
+  const user = await getUser();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -68,6 +63,11 @@ export default function Home() {
               </div>
             </>
           )}
+        </div>
+
+        {/* Recent Polls */}
+        <div className="mb-16">
+          <RecentPolls limit={6} />
         </div>
 
         {/* Features Grid */}
