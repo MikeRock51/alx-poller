@@ -6,9 +6,9 @@ import { CreatePollForm } from "@/components/polls/CreatePollForm";
 export default function CreatePollPage() {
   const router = useRouter();
 
-  const handleSuccess = () => {
-    // Redirect to polls list after successful creation
-    router.push("/polls");
+  const handleSuccess = (poll: { id: string; title: string }) => {
+    // Redirect to the specific poll that was just created
+    router.push(`/polls/${poll.id}`);
   };
 
   return (

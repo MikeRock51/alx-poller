@@ -27,7 +27,7 @@ const pollSchema = z.object({
 type PollFormData = z.infer<typeof pollSchema>;
 
 interface CreatePollFormProps {
-  onSuccess?: () => void;
+  onSuccess?: (poll: { id: string; title: string }) => void;
 }
 
 export function CreatePollForm({ onSuccess }: CreatePollFormProps) {
@@ -82,8 +82,11 @@ export function CreatePollForm({ onSuccess }: CreatePollFormProps) {
       setValue("options", ["", ""]);
       setValue("isPublic", true);
 
-      if (onSuccess) {
-        onSuccess();
+      if (onSuccess && result.success) {
+        onSuccess({
+          id: result.poll.id,
+          title: result.poll.title
+        });
       }
     } catch (err) {
       setError("An unexpected error occurred. Please try again.");
