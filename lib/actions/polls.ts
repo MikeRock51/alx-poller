@@ -212,3 +212,136 @@ export async function deletePoll(pollId: string) {
     return { error: "An unexpected error occurred" };
   }
 }
+
+export async function updatePoll(pollId: string, formData: CreatePollFormData) {
+  try {
+    const supabase = await createClient();
+
+    // Get the current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return { error: "You must be logged in to update a poll" };
+    }
+
+    // First check if the poll belongs to the user
+    const { data: existingPoll, error: pollError } = await supabase
+      .from("polls")
+      .select("created_by")
+      .eq("id", pollId)
+      .single();
+
+    if (pollError || !existingPoll) {
+      return { error: "Poll not found" };
+    }
+
+    if (existingPoll.created_by !== user.id) {
+      return { error: "You can only edit your own polls" };
+    }
+
+    // Validate input
+    if (!formData.title.trim()) {
+      return { error: "Poll title is required" };
+    }
+
+    if (formData.options.length < 2) {
+      return { error: "A poll must have at least 2 options" };
+    }
+
+    // Filter out empty options and ensure uniqueness
+    const validOptions = formData.options
+      .map(option => option.trim())
+      .filter(option => option.length > 0)
+      .filter((option, index, arr) => arr.indexOf(option) === index); // Remove duplicates
+
+    if (validOptions.length < 2) {
+      return { error: "A poll must have at least 2 unique, non-empty options" };
+    }
+
+    // Update poll
+    const pollData = {
+      title: formData.title.trim(),
+      description: formData.description?.trim() || null,
+      expires_at: formData.expiresAt?.toISOString() || null,
+      is_public: formData.isPublic,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error: pollUpdateError } = await supabase
+      .from("polls")
+      .update(pollData)
+      .eq("id", pollId);
+
+    if (pollUpdateError) {
+      console.error("Error updating poll:", pollUpdateError);
+      return { error: "Failed to update poll. Please try again." };
+    }
+
+    // Get existing options to compare
+    const { data: existingOptions } = await supabase
+      .from("poll_options")
+      .select("id, option_text")
+      .eq("poll_id", pollId);
+
+    // Update existing options and add new ones
+    for (let i = 0; i < validOptions.length; i++) {
+      const optionText = validOptions[i];
+
+      if (i < (existingOptions?.length || 0)) {
+        // Update existing option
+        const { error: optionError } = await supabase
+          .from("poll_options")
+          .update({ option_text: optionText })
+          .eq("id", existingOptions[i].id);
+
+        if (optionError) {
+          console.error("Error updating option:", optionError);
+          return { error: "Failed to update poll options" };
+        }
+      } else {
+        // Add new option
+        const { error: optionError } = await supabase
+          .from("poll_options")
+          .insert({
+            poll_id: pollId,
+            option_text: optionText,
+            display_order: i + 1,
+          });
+
+        if (optionError) {
+          console.error("Error adding option:", optionError);
+          return { error: "Failed to add poll options" };
+        }
+      }
+    }
+
+    // Remove excess options if any
+    if ((existingOptions?.length || 0) > validOptions.length) {
+      const optionsToDelete = existingOptions
+        ?.slice(validOptions.length)
+        .map(opt => opt.id) || [];
+
+      if (optionsToDelete.length > 0) {
+        const { error: deleteError } = await supabase
+          .from("poll_options")
+          .delete()
+          .in("id", optionsToDelete);
+
+        if (deleteError) {
+          console.error("Error deleting excess options:", deleteError);
+          return { error: "Failed to update poll options" };
+        }
+      }
+    }
+
+    // Revalidate the poll pages
+    revalidatePath(`/polls/${pollId}`);
+    revalidatePath("/polls");
+    revalidatePath("/");
+
+    return { success: true };
+  } catch (error) {
+    console.error("Unexpected error updating poll:", error);
+    return { error: "An unexpected error occurred. Please try again." };
+  }
+}
