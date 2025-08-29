@@ -1,70 +1,48 @@
-"use client";
-
-import { useState, useEffect } from "react";
+import { getPolls } from "@/lib/actions/polls";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import type { Poll } from "@/types";
 
-// TODO: Replace with actual API call
-const mockPolls: Poll[] = [
-  {
-    id: "1",
-    title: "What's your favorite programming language?",
-    description: "Help us understand the community's preferences",
-    options: [
-      { id: "1", text: "JavaScript", votes: 45 },
-      { id: "2", text: "Python", votes: 32 },
-      { id: "3", text: "TypeScript", votes: 28 },
-      { id: "4", text: "Rust", votes: 15 }
-    ],
-    createdBy: "user1",
-    createdAt: new Date("2024-01-15"),
-    isActive: true,
-    totalVotes: 120
-  },
-  {
-    id: "2",
-    title: "Which framework do you prefer?",
-    description: "React vs Vue vs Angular",
-    options: [
-      { id: "1", text: "React", votes: 67 },
-      { id: "2", text: "Vue", votes: 23 },
-      { id: "3", text: "Angular", votes: 18 }
-    ],
-    createdBy: "user2",
-    createdAt: new Date("2024-01-14"),
-    isActive: true,
-    totalVotes: 108
-  }
-];
+export default async function PollsPage() {
+  const result = await getPolls();
 
-export default function PollsPage() {
-  const [polls, setPolls] = useState<Poll[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    // TODO: Fetch polls from API
-    const fetchPolls = async () => {
-      setIsLoading(true);
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      setPolls(mockPolls);
-      setIsLoading(false);
-    };
-
-    fetchPolls();
-  }, []);
-
-  if (isLoading) {
+  if (result.error) {
     return (
       <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto">
-          <div className="text-center">Loading polls...</div>
+          <div className="text-center py-12">
+            <div className="text-red-600 mb-4">Error loading polls: {result.error}</div>
+            <Link href="/polls/create">
+              <Button>Create New Poll</Button>
+            </Link>
+          </div>
         </div>
       </div>
     );
   }
+
+  const polls: Poll[] = (result.polls || []).map((poll: any) => ({
+    id: poll.id,
+    title: poll.title,
+    description: poll.description,
+    createdBy: poll.created_by,
+    createdAt: new Date(poll.created_at),
+    updatedAt: new Date(poll.updated_at),
+    expiresAt: poll.expires_at ? new Date(poll.expires_at) : undefined,
+    isActive: poll.is_active,
+    allowMultipleVotes: poll.allow_multiple_votes,
+    isPublic: poll.is_public,
+    options: (poll.poll_options || []).map((option: any) => ({
+      id: option.id,
+      pollId: option.poll_id,
+      optionText: option.option_text,
+      displayOrder: option.display_order,
+      createdAt: new Date(option.created_at),
+      votes: 0, // We'll calculate this from votes table later
+    })),
+    totalVotes: 0, // We'll calculate this later
+  }));
 
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -92,7 +70,7 @@ export default function PollsPage() {
                 <div className="space-y-2 mb-4">
                   {poll.options.slice(0, 3).map((option) => (
                     <div key={option.id} className="flex justify-between text-sm">
-                      <span>{option.text}</span>
+                      <span>{option.optionText}</span>
                       <span className="text-gray-500">{option.votes} votes</span>
                     </div>
                   ))}
