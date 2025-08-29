@@ -20,19 +20,19 @@ interface PollData {
   created_by?: string;
 }
 
-interface PollCardClientProps {
-  poll: PollData;
+interface PollCardWrapperProps {
+  polls: PollData[];
   currentUserId?: string;
   variant?: "default" | "compact" | "dashboard";
   showViewButton?: boolean;
 }
 
-export function PollCardClient({
-  poll,
+export function PollCardWrapper({
+  polls,
   currentUserId,
   variant = "default",
   showViewButton = true
-}: PollCardClientProps) {
+}: PollCardWrapperProps) {
   const router = useRouter();
   const { addToast } = useToast();
 
@@ -68,13 +68,18 @@ export function PollCardClient({
   };
 
   return (
-    <PollCard
-      poll={poll}
-      variant={variant}
-      showViewButton={showViewButton}
-      currentUserId={currentUserId}
-      onEdit={handleEdit}
-      onDelete={handleDelete}
-    />
+    <div className={variant === "dashboard" ? "grid gap-4 md:grid-cols-2 lg:grid-cols-3" : "grid gap-6 md:grid-cols-2"}>
+      {polls.map((poll) => (
+        <PollCard
+          key={poll.id}
+          poll={poll}
+          variant={variant}
+          showViewButton={showViewButton}
+          currentUserId={currentUserId}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+        />
+      ))}
+    </div>
   );
 }

@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Users } from "lucide-react";
 import { getPolls } from "@/lib/actions/polls";
 import { createClient } from "@/lib/supabase/server";
-import { PollCardClient } from "./PollCardClient";
+import { PollCardWrapper } from "./PollCardWrapper";
 
 interface RecentPollsProps {
   limit?: number;
@@ -99,17 +99,12 @@ export async function RecentPolls({ limit = 6, showViewAll = true }: RecentPolls
         </div>
       </CardHeader>
       <CardContent>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {polls.map((poll) => (
-            <PollCardClient
-              key={poll.id}
-              poll={poll}
-              variant="dashboard"
-              showViewButton={false}
-              currentUserId={user?.id}
-            />
-          ))}
-        </div>
+        <PollCardWrapper
+          polls={polls}
+          currentUserId={user?.id}
+          variant="dashboard"
+          showViewButton={false}
+        />
       </CardContent>
     </Card>
   );
