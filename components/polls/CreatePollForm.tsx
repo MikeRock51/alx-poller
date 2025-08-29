@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { createPoll } from "@/lib/actions/polls";
 import { CreatePollFormData } from "@/types";
+import { useToast } from "@/lib/toast";
 import { Plus, X } from "lucide-react";
 
 const pollSchema = z.object({
@@ -33,6 +35,8 @@ interface CreatePollFormProps {
 export function CreatePollForm({ onSuccess }: CreatePollFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+  const { addToast } = useToast();
 
   const {
     register,
@@ -53,6 +57,7 @@ export function CreatePollForm({ onSuccess }: CreatePollFormProps) {
 
   const { fields, append, remove } = useFieldArray({
     control,
+    // @ts-ignore - TypeScript issue with react-hook-form useFieldArray
     name: "options",
   });
 
@@ -76,17 +81,34 @@ export function CreatePollForm({ onSuccess }: CreatePollFormProps) {
         return;
       }
 
-      // Reset form
-      setValue("title", "");
-      setValue("description", "");
-      setValue("options", ["", ""]);
-      setValue("isPublic", true);
-
-      if (onSuccess && result.success) {
-        onSuccess({
+      // Show success toast and navigate
+      if (result.success) {
+        const pollData = {
           id: result.poll.id,
           title: result.poll.title
+        };
+
+        // Reset form
+        setValue("title", "");
+        setValue("description", "");
+        setValue("options", ["", ""]);
+        setValue("isPublic", true);
+
+        if (onSuccess) {
+          onSuccess(pollData);
+        }
+
+        // Show success toast
+        addToast({
+          title: "Poll Created Successfully!",
+          description: `Your poll "${result.poll.title}" has been created and is ready to share.`,
+          type: "success"
         });
+
+        // Navigate to polls page after a short delay
+        setTimeout(() => {
+          router.push('/polls');
+        }, 1500);
       }
     } catch (err) {
       setError("An unexpected error occurred. Please try again.");
@@ -195,7 +217,7 @@ export function CreatePollForm({ onSuccess }: CreatePollFormProps) {
                   )}
                 </div>
               ))}
-              {errors.options?.some((error) => error?.message) && (
+              {errors.options && Array.isArray(errors.options) && errors.options.some((error) => error?.message) && (
                 <div className="space-y-1">
                   {errors.options.map((error, index) => (
                     error?.message && (
