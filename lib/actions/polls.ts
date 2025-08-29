@@ -101,6 +101,30 @@ export async function getPolls() {
       return { error: "Failed to fetch polls" };
     }
 
+    // Get vote counts for all polls
+    const pollIds = polls?.map(poll => poll.id) || [];
+    if (pollIds.length > 0) {
+      const { data: votes } = await supabase
+        .from("votes")
+        .select("poll_id, option_id")
+        .in("poll_id", pollIds);
+
+      // Create a map of poll_id -> vote count
+      const voteCountMap = new Map<string, number>();
+      votes?.forEach((vote: any) => {
+        const count = voteCountMap.get(vote.poll_id) || 0;
+        voteCountMap.set(vote.poll_id, count + 1);
+      });
+
+      // Add vote counts to polls
+      const pollsWithVotes = polls?.map(poll => ({
+        ...poll,
+        total_votes: voteCountMap.get(poll.id) || 0
+      }));
+
+      return { polls: pollsWithVotes || [] };
+    }
+
     return { polls: polls || [] };
   } catch (error) {
     console.error("Unexpected error fetching polls:", error);
@@ -343,5 +367,111 @@ export async function updatePoll(pollId: string, formData: CreatePollFormData) {
   } catch (error) {
     console.error("Unexpected error updating poll:", error);
     return { error: "An unexpected error occurred. Please try again." };
+  }
+}
+
+export async function voteOnPoll(pollId: string, optionId: string) {
+  try {
+    const supabase = await createClient();
+
+    // Get the current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return { error: "You must be logged in to vote" };
+    }
+
+    // Check if the poll exists and is active
+    const { data: poll, error: pollError } = await supabase
+      .from("polls")
+      .select("is_active, expires_at")
+      .eq("id", pollId)
+      .single();
+
+    if (pollError || !poll) {
+      return { error: "Poll not found" };
+    }
+
+    if (!poll.is_active) {
+      return { error: "This poll is no longer active" };
+    }
+
+    if (poll.expires_at && new Date(poll.expires_at) < new Date()) {
+      return { error: "This poll has expired" };
+    }
+
+    // Check if the option belongs to the poll
+    const { data: option, error: optionError } = await supabase
+      .from("poll_options")
+      .select("id")
+      .eq("id", optionId)
+      .eq("poll_id", pollId)
+      .single();
+
+    if (optionError || !option) {
+      return { error: "Invalid option" };
+    }
+
+    // Check if user has already voted on this poll
+    const { data: existingVote, error: voteCheckError } = await supabase
+      .from("votes")
+      .select("id")
+      .eq("poll_id", pollId)
+      .eq("user_id", user.id)
+      .single();
+
+    if (voteCheckError && voteCheckError.code !== "PGRST116") {
+      console.error("Error checking existing vote:", voteCheckError);
+      return { error: "Failed to check voting status" };
+    }
+
+    if (existingVote) {
+      return { error: "You have already voted on this poll" };
+    }
+
+    // Insert the vote
+    const { error: voteError } = await supabase
+      .from("votes")
+      .insert({
+        poll_id: pollId,
+        option_id: optionId,
+        user_id: user.id,
+      });
+
+    if (voteError) {
+      console.error("Error inserting vote:", voteError);
+      return { error: "Failed to submit your vote" };
+    }
+
+    // Revalidate the poll page to show updated results
+    revalidatePath(`/polls/${pollId}`);
+
+    return { success: true };
+  } catch (error) {
+    console.error("Unexpected error voting:", error);
+    return { error: "An unexpected error occurred. Please try again." };
+  }
+}
+
+export async function hasUserVoted(pollId: string, userId: string) {
+  try {
+    const supabase = await createClient();
+
+    const { data: vote, error } = await supabase
+      .from("votes")
+      .select("id")
+      .eq("poll_id", pollId)
+      .eq("user_id", userId)
+      .single();
+
+    if (error && error.code !== "PGRST116") {
+      console.error("Error checking vote status:", error);
+      return false;
+    }
+
+    return !!vote;
+  } catch (error) {
+    console.error("Unexpected error checking vote status:", error);
+    return false;
   }
 }

@@ -7,27 +7,38 @@ import type { Poll } from "@/types";
 
 interface PollVotingClientProps {
   poll: Poll;
+  hasUserVoted?: boolean;
+  currentUserId?: string;
 }
 
-export function PollVotingClient({ poll }: PollVotingClientProps) {
+export function PollVotingClient({ poll, hasUserVoted = false, currentUserId }: PollVotingClientProps) {
   const [selectedOption, setSelectedOption] = useState<string>("");
-  const [hasVoted, setHasVoted] = useState(false);
+  const [voted, setVoted] = useState(hasUserVoted);
   const [isVoting, setIsVoting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleVote = async () => {
     if (!selectedOption || !poll) return;
 
     setIsVoting(true);
+    setError(null);
 
-    // TODO: Implement actual voting logic
-    console.log("Voting for option:", selectedOption);
+    try {
+      const { voteOnPoll } = await import("@/lib/actions/polls");
+      const result = await voteOnPoll(poll.id, selectedOption);
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Update local state to show results
-    setHasVoted(true);
-    setIsVoting(false);
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setVoted(true);
+        // Optionally refresh the page to show updated results
+        window.location.reload();
+      }
+    } catch (err) {
+      setError("Failed to submit vote. Please try again.");
+    } finally {
+      setIsVoting(false);
+    }
   };
 
   const getVotePercentage = (votes: number) => {
@@ -54,7 +65,23 @@ export function PollVotingClient({ poll }: PollVotingClientProps) {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {!hasVoted ? (
+            {error && (
+              <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+                {error}
+              </div>
+            )}
+
+            {!currentUserId ? (
+              <div className="text-center py-4">
+                <p className="text-gray-600 mb-4">You need to be logged in to vote on this poll.</p>
+                <a
+                  href="/auth/login"
+                  className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
+                >
+                  Sign In to Vote
+                </a>
+              </div>
+            ) : !voted ? (
               <div className="space-y-4">
                 <div className="space-y-2">
                   {poll.options.map((option) => (
@@ -101,7 +128,7 @@ export function PollVotingClient({ poll }: PollVotingClientProps) {
                   </div>
                 ))}
                 <Button
-                  onClick={() => setHasVoted(false)}
+                  onClick={() => setVoted(false)}
                   variant="outline"
                   className="w-full mt-4"
                 >

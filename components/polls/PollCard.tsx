@@ -170,6 +170,12 @@ export function PollCard({
                   {formatDate(poll.created_at)}
                 </div>
                 <div className="flex items-center gap-2">
+                  {poll.total_votes !== undefined && poll.total_votes > 0 && (
+                    <div className="flex items-center gap-1">
+                      <Users className="h-3 w-3" />
+                      <span>{poll.total_votes} votes</span>
+                    </div>
+                  )}
                   {isExpired && (
                     <Badge variant="secondary" className="text-xs">
                       Expired
@@ -256,20 +262,18 @@ export function PollCard({
             )}
           </div>
 
-          {/* Meta information */}
-          <div className="flex justify-between items-center text-sm text-gray-500">
-            <div className="flex items-center gap-4">
-              {poll.total_votes !== undefined && (
+                    {/* Meta information */}
+            <div className="flex justify-between items-center text-sm text-gray-500">
+              <div className="flex items-center gap-4">
                 <div className="flex items-center gap-1">
                   <Users className="h-4 w-4" />
-                  <span>{poll.total_votes} votes</span>
+                  <span>{poll.total_votes || 0} votes</span>
                 </div>
-              )}
-              <div className="flex items-center gap-1">
-                <Clock className="h-4 w-4" />
-                <span>{formatDate(poll.created_at)}</span>
+                <div className="flex items-center gap-1">
+                  <Clock className="h-4 w-4" />
+                  <span>{formatDate(poll.created_at)}</span>
+                </div>
               </div>
-            </div>
             <div className="flex items-center gap-2">
               {isExpired && (
                 <Badge variant="secondary" className="text-xs">

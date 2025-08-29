@@ -48,6 +48,31 @@ export default async function PollDetailPage({ params }: PollDetailPageProps) {
     );
   }
 
+  // Get vote counts for each option
+  const { createClient } = await import("@/lib/supabase/server");
+  const supabase = await createClient();
+
+  const { data: voteCounts } = await supabase
+    .from("votes")
+    .select("option_id")
+    .eq("poll_id", id);
+
+  // Calculate vote counts per option
+  const voteCountMap = new Map<string, number>();
+  voteCounts?.forEach((vote: any) => {
+    const count = voteCountMap.get(vote.option_id) || 0;
+    voteCountMap.set(vote.option_id, count + 1);
+  });
+
+  // Get current user to check voting status
+  const { data: { user } } = await supabase.auth.getUser();
+  let hasUserVoted = false;
+
+  if (user) {
+    const { hasUserVoted: voted } = await import("@/lib/actions/polls");
+    hasUserVoted = await voted(id, user.id);
+  }
+
   // Transform the database response to match our Poll type
   const poll: Poll = {
     id: pollData.id,
@@ -66,10 +91,16 @@ export default async function PollDetailPage({ params }: PollDetailPageProps) {
       optionText: option.option_text,
       displayOrder: option.display_order,
       createdAt: new Date(option.created_at),
-      votes: 0, // TODO: Calculate actual votes from votes table
+      votes: voteCountMap.get(option.id) || 0,
     })),
-    totalVotes: 0, // TODO: Calculate total votes
+    totalVotes: voteCounts?.length || 0,
   };
 
-  return <PollVotingClient poll={poll} />;
+  return (
+    <PollVotingClient
+      poll={poll}
+      hasUserVoted={hasUserVoted}
+      currentUserId={user?.id}
+    />
+  );
 }
