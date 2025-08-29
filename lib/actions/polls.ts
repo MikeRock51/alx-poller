@@ -164,3 +164,51 @@ export async function getUserPolls() {
     return { error: "An unexpected error occurred" };
   }
 }
+
+export async function deletePoll(pollId: string) {
+  try {
+    const supabase = await createClient();
+
+    // Get the current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return { error: "You must be logged in to delete a poll" };
+    }
+
+    // First check if the poll belongs to the user
+    const { data: poll, error: pollError } = await supabase
+      .from("polls")
+      .select("created_by")
+      .eq("id", pollId)
+      .single();
+
+    if (pollError || !poll) {
+      return { error: "Poll not found" };
+    }
+
+    if (poll.created_by !== user.id) {
+      return { error: "You can only delete your own polls" };
+    }
+
+    // Delete the poll (cascade will handle poll_options and votes)
+    const { error: deleteError } = await supabase
+      .from("polls")
+      .delete()
+      .eq("id", pollId);
+
+    if (deleteError) {
+      console.error("Error deleting poll:", deleteError);
+      return { error: "Failed to delete poll" };
+    }
+
+    // Revalidate the polls pages
+    revalidatePath("/polls");
+    revalidatePath("/");
+
+    return { success: true };
+  } catch (error) {
+    console.error("Unexpected error deleting poll:", error);
+    return { error: "An unexpected error occurred" };
+  }
+}

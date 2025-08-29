@@ -1,10 +1,8 @@
-import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Users } from "lucide-react";
 import { getPolls } from "@/lib/actions/polls";
 import { createClient } from "@/lib/supabase/server";
-import { PollCard } from "@/components/polls/PollCard";
+import { PollCardClient } from "./PollCardClient";
 
 interface RecentPollsProps {
   limit?: number;
@@ -49,20 +47,26 @@ export async function RecentPolls({ limit = 6, showViewAll = true }: RecentPolls
             {user ? (
               <>
                 <p className="text-sm mb-4">Be the first to create a poll and start engaging your community!</p>
-                <Link href="/polls/create">
-                  <Button>Create First Poll</Button>
-                </Link>
+                <a href="/polls/create">
+                  <button className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2">
+                    Create First Poll
+                  </button>
+                </a>
               </>
             ) : (
               <>
                 <p className="text-sm mb-4">Sign up to create polls and see what others are voting on!</p>
                 <div className="flex justify-center space-x-3">
-                  <Link href="/auth/signup">
-                    <Button>Sign Up</Button>
-                  </Link>
-                  <Link href="/polls">
-                    <Button variant="outline">Browse Polls</Button>
-                  </Link>
+                  <a href="/auth/signup">
+                    <button className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2">
+                      Sign Up
+                    </button>
+                  </a>
+                  <a href="/polls">
+                    <button className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
+                      Browse Polls
+                    </button>
+                  </a>
                 </div>
               </>
             )}
@@ -86,22 +90,23 @@ export async function RecentPolls({ limit = 6, showViewAll = true }: RecentPolls
             </CardDescription>
           </div>
           {showViewAll && (
-            <Link href="/polls">
-              <Button variant="outline" size="sm">
+            <a href="/polls">
+              <button className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-8 rounded-md px-3 text-xs">
                 View All
-              </Button>
-            </Link>
+              </button>
+            </a>
           )}
         </div>
       </CardHeader>
       <CardContent>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {polls.map((poll) => (
-            <PollCard
+            <PollCardClient
               key={poll.id}
               poll={poll}
               variant="dashboard"
               showViewButton={false}
+              currentUserId={user?.id}
             />
           ))}
         </div>
@@ -109,5 +114,3 @@ export async function RecentPolls({ limit = 6, showViewAll = true }: RecentPolls
     </Card>
   );
 }
-
-

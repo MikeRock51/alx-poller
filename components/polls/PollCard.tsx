@@ -1,8 +1,15 @@
 import Link from "next/link";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Clock, Eye, Users } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Clock, Eye, Users, MoreVertical, Edit, Trash2 } from "lucide-react";
 
 export type PollCardVariant = "default" | "compact" | "dashboard";
 
@@ -30,14 +37,43 @@ interface PollCardProps {
   variant?: PollCardVariant;
   showViewButton?: boolean;
   className?: string;
+  currentUserId?: string;
+  onEdit?: (pollId: string) => void;
+  onDelete?: (pollId: string) => void;
 }
 
 export function PollCard({
   poll,
   variant = "default",
   showViewButton = true,
-  className = ""
+  className = "",
+  currentUserId,
+  onEdit,
+  onDelete
 }: PollCardProps) {
+  const [isDeleting, setIsDeleting] = useState(false);
+  const isOwner = currentUserId && poll.created_by === currentUserId;
+
+  const handleDelete = async () => {
+    if (!onDelete || !window.confirm("Are you sure you want to delete this poll? This action cannot be undone.")) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      await onDelete(poll.id);
+    } catch (error) {
+      console.error("Failed to delete poll:", error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleEdit = () => {
+    if (onEdit) {
+      onEdit(poll.id);
+    }
+  };
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -58,17 +94,48 @@ export function PollCard({
   // Dashboard/compact variant styling
   if (variant === "dashboard" || variant === "compact") {
     return (
-      <Link href={`/polls/${poll.id}`}>
-        <Card className={`h-full hover:shadow-md transition-shadow cursor-pointer ${className}`}>
-          <CardHeader className="pb-3">
-            <div className="flex items-start justify-between gap-2">
+      <Card className={`h-full hover:shadow-md transition-shadow ${className}`}>
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between gap-2">
+            <Link href={`/polls/${poll.id}`} className="flex-1 cursor-pointer">
               <CardTitle className="text-base leading-tight line-clamp-2">
                 {poll.title}
               </CardTitle>
+            </Link>
+            <div className="flex items-center gap-1 flex-shrink-0">
               {!poll.is_public && (
-                <Eye className="h-4 w-4 text-gray-400 flex-shrink-0 mt-1" />
+                <Eye className="h-4 w-4 text-gray-400" />
+              )}
+              {isOwner && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 hover:bg-gray-100"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={handleEdit}>
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={handleDelete}
+                      disabled={isDeleting}
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      {isDeleting ? "Deleting..." : "Delete"}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
             </div>
+          </div>
             {poll.description && (
               <CardDescription className="text-sm line-clamp-2">
                 {poll.description}
@@ -119,7 +186,6 @@ export function PollCard({
             </div>
           </CardContent>
         </Card>
-      </Link>
     );
   }
 
@@ -134,9 +200,39 @@ export function PollCard({
               <CardDescription className="mt-2">{poll.description}</CardDescription>
             )}
           </div>
-          {!poll.is_public && (
-            <Eye className="h-5 w-5 text-gray-400 flex-shrink-0 mt-1" />
-          )}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {!poll.is_public && (
+              <Eye className="h-5 w-5 text-gray-400" />
+            )}
+            {isOwner && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 hover:bg-gray-100"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handleEdit}>
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={handleDelete}
+                    disabled={isDeleting}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    {isDeleting ? "Deleting..." : "Delete"}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent>
