@@ -4,12 +4,124 @@ import { createClient } from "@/lib/supabase/server";
 import { CreatePollFormData, DatabasePoll, DatabasePollOption } from "@/types";
 import { revalidatePath } from "next/cache";
 
+// Helper Functions
+async function getAuthenticatedUser() {
+  const supabase = await createClient();
+  const { data: { user }, error } = await supabase.auth.getUser();
+
+  return { supabase, user, error };
+}
+
+function validatePollOptions(options: string[]): { isValid: boolean; error?: string; validOptions?: string[] } {
+  if (options.length < 2) {
+    return { isValid: false, error: "A poll must have at least 2 options" };
+  }
+
+  const validOptions = options
+    .map(option => option.trim())
+    .filter(option => option.length > 0)
+    .filter((option: string, index: number, arr: string[]) => arr.indexOf(option) === index);
+
+  if (validOptions.length < 2) {
+    return { isValid: false, error: "A poll must have at least 2 unique, non-empty options" };
+  }
+
+  return { isValid: true, validOptions };
+}
+
+async function getVoteCounts(supabase: any, pollIds: string[]) {
+  if (pollIds.length === 0) return new Map();
+
+  const { data: votes } = await supabase
+    .from("votes")
+    .select("poll_id")
+    .in("poll_id", pollIds);
+
+  const voteCountMap = new Map<string, number>();
+  votes?.forEach((vote: any) => {
+    const count = voteCountMap.get(vote.poll_id) || 0;
+    voteCountMap.set(vote.poll_id, count + 1);
+  });
+
+  return voteCountMap;
+}
+
+async function verifyPollOwnership(supabase: any, pollId: string, userId: string) {
+  const { data: poll, error } = await supabase
+    .from("polls")
+    .select("created_by")
+    .eq("id", pollId)
+    .single();
+
+  if (error || !poll) {
+    return { error: "Poll not found" };
+  }
+
+  if (poll.created_by !== userId) {
+    return { error: "You can only edit your own polls" };
+  }
+
+  return { poll };
+}
+
+async function updatePollOptions(supabase: any, pollId: string, validOptions: string[]) {
+  const { data: existingOptions } = await supabase
+    .from("poll_options")
+    .select("id, option_text")
+    .eq("poll_id", pollId);
+
+  // Update existing options and add new ones
+  for (let i = 0; i < validOptions.length; i++) {
+    const optionText = validOptions[i];
+
+    if (existingOptions && i < existingOptions.length) {
+      // Update existing option
+      const { error: optionError } = await supabase
+        .from("poll_options")
+        .update({ option_text: optionText })
+        .eq("id", existingOptions[i].id);
+
+      if (optionError) {
+        throw new Error("Failed to update poll options");
+      }
+    } else {
+      // Add new option
+      const { error: optionError } = await supabase
+        .from("poll_options")
+        .insert({
+          poll_id: pollId,
+          option_text: optionText,
+          display_order: i + 1,
+        });
+
+      if (optionError) {
+        throw new Error("Failed to add poll options");
+      }
+    }
+  }
+
+  // Remove excess options if any
+  if (existingOptions && existingOptions.length > validOptions.length) {
+    const optionsToDelete = existingOptions
+      .slice(validOptions.length)
+      .map((opt: any) => opt.id);
+
+    if (optionsToDelete.length > 0) {
+      const { error: deleteError } = await supabase
+        .from("poll_options")
+        .delete()
+        .in("id", optionsToDelete);
+
+      if (deleteError) {
+        throw new Error("Failed to update poll options");
+      }
+    }
+  }
+}
+
 export async function createPoll(formData: CreatePollFormData) {
   try {
-    const supabase = await createClient();
-
-    // Get the current user
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const { supabase, user, error: userError } = await getAuthenticatedUser();
 
     if (userError || !user) {
       return { error: "You must be logged in to create a poll" };
@@ -20,19 +132,12 @@ export async function createPoll(formData: CreatePollFormData) {
       return { error: "Poll title is required" };
     }
 
-    if (formData.options.length < 2) {
-      return { error: "A poll must have at least 2 options" };
+    const optionsValidation = validatePollOptions(formData.options);
+    if (!optionsValidation.isValid) {
+      return { error: optionsValidation.error };
     }
 
-    // Filter out empty options and ensure uniqueness
-    const validOptions = formData.options
-      .map(option => option.trim())
-      .filter(option => option.length > 0)
-      .filter((option, index, arr) => arr.indexOf(option) === index); // Remove duplicates
-
-    if (validOptions.length < 2) {
-      return { error: "A poll must have at least 2 unique, non-empty options" };
-    }
+    const validOptions = optionsValidation.validOptions!;
 
     // Create poll
     const pollData = {
@@ -101,31 +206,21 @@ export async function getPolls() {
       return { error: "Failed to fetch polls" };
     }
 
-    // Get vote counts for all polls
-    const pollIds = polls?.map(poll => poll.id) || [];
-    if (pollIds.length > 0) {
-      const { data: votes } = await supabase
-        .from("votes")
-        .select("poll_id, option_id")
-        .in("poll_id", pollIds);
-
-      // Create a map of poll_id -> vote count
-      const voteCountMap = new Map<string, number>();
-      votes?.forEach((vote: any) => {
-        const count = voteCountMap.get(vote.poll_id) || 0;
-        voteCountMap.set(vote.poll_id, count + 1);
-      });
-
-      // Add vote counts to polls
-      const pollsWithVotes = polls?.map(poll => ({
-        ...poll,
-        total_votes: voteCountMap.get(poll.id) || 0
-      }));
-
-      return { polls: pollsWithVotes || [] };
+    if (!polls || polls.length === 0) {
+      return { polls: [] };
     }
 
-    return { polls: polls || [] };
+    // Get vote counts efficiently
+    const pollIds = polls.map(poll => poll.id);
+    const voteCountMap = await getVoteCounts(supabase, pollIds);
+
+    // Add vote counts to polls
+    const pollsWithVotes = polls.map(poll => ({
+      ...poll,
+      total_votes: voteCountMap.get(poll.id) || 0
+    }));
+
+    return { polls: pollsWithVotes };
   } catch (error) {
     console.error("Unexpected error fetching polls:", error);
     return { error: "An unexpected error occurred" };
@@ -160,9 +255,7 @@ export async function getPollById(id: string) {
 
 export async function getUserPolls() {
   try {
-    const supabase = await createClient();
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const { supabase, user, error: userError } = await getAuthenticatedUser();
 
     if (userError || !user) {
       return { error: "You must be logged in to view your polls" };
@@ -191,28 +284,16 @@ export async function getUserPolls() {
 
 export async function deletePoll(pollId: string) {
   try {
-    const supabase = await createClient();
-
-    // Get the current user
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const { supabase, user, error: userError } = await getAuthenticatedUser();
 
     if (userError || !user) {
       return { error: "You must be logged in to delete a poll" };
     }
 
-    // First check if the poll belongs to the user
-    const { data: poll, error: pollError } = await supabase
-      .from("polls")
-      .select("created_by")
-      .eq("id", pollId)
-      .single();
-
-    if (pollError || !poll) {
-      return { error: "Poll not found" };
-    }
-
-    if (poll.created_by !== user.id) {
-      return { error: "You can only delete your own polls" };
+    // Verify poll ownership
+    const ownershipCheck = await verifyPollOwnership(supabase, pollId, user.id);
+    if (ownershipCheck.error) {
+      return { error: ownershipCheck.error };
     }
 
     // Delete the poll (cascade will handle poll_options and votes)
@@ -239,28 +320,16 @@ export async function deletePoll(pollId: string) {
 
 export async function updatePoll(pollId: string, formData: CreatePollFormData) {
   try {
-    const supabase = await createClient();
-
-    // Get the current user
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const { supabase, user, error: userError } = await getAuthenticatedUser();
 
     if (userError || !user) {
       return { error: "You must be logged in to update a poll" };
     }
 
-    // First check if the poll belongs to the user
-    const { data: existingPoll, error: pollError } = await supabase
-      .from("polls")
-      .select("created_by")
-      .eq("id", pollId)
-      .single();
-
-    if (pollError || !existingPoll) {
-      return { error: "Poll not found" };
-    }
-
-    if (existingPoll.created_by !== user.id) {
-      return { error: "You can only edit your own polls" };
+    // Verify ownership
+    const ownershipCheck = await verifyPollOwnership(supabase, pollId, user.id);
+    if (ownershipCheck.error) {
+      return { error: ownershipCheck.error };
     }
 
     // Validate input
@@ -268,19 +337,12 @@ export async function updatePoll(pollId: string, formData: CreatePollFormData) {
       return { error: "Poll title is required" };
     }
 
-    if (formData.options.length < 2) {
-      return { error: "A poll must have at least 2 options" };
+    const optionsValidation = validatePollOptions(formData.options);
+    if (!optionsValidation.isValid) {
+      return { error: optionsValidation.error };
     }
 
-    // Filter out empty options and ensure uniqueness
-    const validOptions = formData.options
-      .map(option => option.trim())
-      .filter(option => option.length > 0)
-      .filter((option, index, arr) => arr.indexOf(option) === index); // Remove duplicates
-
-    if (validOptions.length < 2) {
-      return { error: "A poll must have at least 2 unique, non-empty options" };
-    }
+    const validOptions = optionsValidation.validOptions!;
 
     // Update poll
     const pollData = {
@@ -301,62 +363,8 @@ export async function updatePoll(pollId: string, formData: CreatePollFormData) {
       return { error: "Failed to update poll. Please try again." };
     }
 
-    // Get existing options to compare
-    const { data: existingOptions } = await supabase
-      .from("poll_options")
-      .select("id, option_text")
-      .eq("poll_id", pollId);
-
-    // Update existing options and add new ones
-    for (let i = 0; i < validOptions.length; i++) {
-      const optionText = validOptions[i];
-
-      if (i < (existingOptions?.length || 0)) {
-        // Update existing option
-        const { error: optionError } = await supabase
-          .from("poll_options")
-          .update({ option_text: optionText })
-          .eq("id", existingOptions[i].id);
-
-        if (optionError) {
-          console.error("Error updating option:", optionError);
-          return { error: "Failed to update poll options" };
-        }
-      } else {
-        // Add new option
-        const { error: optionError } = await supabase
-          .from("poll_options")
-          .insert({
-            poll_id: pollId,
-            option_text: optionText,
-            display_order: i + 1,
-          });
-
-        if (optionError) {
-          console.error("Error adding option:", optionError);
-          return { error: "Failed to add poll options" };
-        }
-      }
-    }
-
-    // Remove excess options if any
-    if ((existingOptions?.length || 0) > validOptions.length) {
-      const optionsToDelete = existingOptions
-        ?.slice(validOptions.length)
-        .map(opt => opt.id) || [];
-
-      if (optionsToDelete.length > 0) {
-        const { error: deleteError } = await supabase
-          .from("poll_options")
-          .delete()
-          .in("id", optionsToDelete);
-
-        if (deleteError) {
-          console.error("Error deleting excess options:", deleteError);
-          return { error: "Failed to update poll options" };
-        }
-      }
-    }
+    // Update options
+    await updatePollOptions(supabase, pollId, validOptions);
 
     // Revalidate the poll pages
     revalidatePath(`/polls/${pollId}`);
@@ -366,16 +374,13 @@ export async function updatePoll(pollId: string, formData: CreatePollFormData) {
     return { success: true };
   } catch (error) {
     console.error("Unexpected error updating poll:", error);
-    return { error: "An unexpected error occurred. Please try again." };
+    return { error: error instanceof Error ? error.message : "An unexpected error occurred. Please try again." };
   }
 }
 
 export async function voteOnPoll(pollId: string, optionId: string) {
   try {
-    const supabase = await createClient();
-
-    // Get the current user
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const { supabase, user, error: userError } = await getAuthenticatedUser();
 
     if (userError || !user) {
       return { error: "You must be logged in to vote" };
