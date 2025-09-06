@@ -15,7 +15,7 @@ jest.mock('next/cache', () => ({
   revalidatePath: jest.fn(),
 }))
 
-// Mock Supabase client
+// Mock Supabase client with comprehensive method chaining support
 const mockSupabaseClient = {
   auth: {
     getUser: jest.fn(),
@@ -26,6 +26,63 @@ const mockSupabaseClient = {
 jest.mock('@/lib/supabase/server', () => ({
   createClient: jest.fn(() => mockSupabaseClient),
 }))
+
+// Helper to create a comprehensive Supabase query builder mock
+const createSupabaseQueryBuilder = (result: any = { data: null, error: null }) => {
+  const mockSingle = jest.fn().mockResolvedValue(result)
+  const mockSelect = jest.fn().mockReturnThis()
+  const mockInsert = jest.fn().mockReturnThis()
+  const mockUpdate = jest.fn().mockReturnThis()
+  const mockDelete = jest.fn().mockReturnThis()
+  const mockEq = jest.fn().mockReturnThis()
+  const mockOrder = jest.fn().mockReturnThis()
+  const mockIn = jest.fn().mockReturnThis()
+
+  // Set up the method chaining properly
+  mockSelect.mockReturnValue({
+    eq: mockEq,
+    order: mockOrder,
+    in: mockIn,
+  })
+
+  mockInsert.mockReturnValue({
+    select: jest.fn().mockReturnValue({
+      single: mockSingle,
+    }),
+  })
+
+  mockUpdate.mockReturnValue({
+    eq: mockEq,
+  })
+
+  mockDelete.mockReturnValue({
+    eq: mockEq,
+  })
+
+  // Enhanced eq() chaining to support multiple .eq() calls followed by .single()
+  mockEq.mockReturnValue({
+    eq: mockEq,
+    single: mockSingle,
+    order: mockOrder,
+    select: mockSelect,
+  })
+
+  mockOrder.mockReturnValue(result)
+  mockIn.mockReturnValue({
+    select: mockSelect,
+  })
+
+  return {
+    select: mockSelect,
+    insert: mockInsert,
+    update: mockUpdate,
+    delete: mockDelete,
+    eq: mockEq,
+    single: mockSingle,
+    order: mockOrder,
+    in: mockIn,
+  }
+}
 
 describe('Polls Actions - Basic Tests', () => {
   beforeEach(() => {
@@ -169,15 +226,16 @@ describe('Polls Actions - Basic Tests', () => {
 
   describe('Error handling', () => {
     it('should handle database errors in getPolls', async () => {
-      mockSupabaseClient.from.mockReturnValue({
-        select: jest.fn(() => ({
-          eq: jest.fn(() => ({
-            order: jest.fn(() => ({
-              data: null,
-              error: { message: 'Database error' },
-            })),
-          })),
-        })),
+      const pollsQueryBuilder = createSupabaseQueryBuilder({
+        data: null,
+        error: { message: 'Database error' },
+      })
+
+      mockSupabaseClient.from.mockImplementation((tableName: string) => {
+        if (tableName === 'polls') {
+          return pollsQueryBuilder
+        }
+        return createSupabaseQueryBuilder()
       })
 
       const result = await getPolls()
@@ -185,17 +243,16 @@ describe('Polls Actions - Basic Tests', () => {
     })
 
     it('should handle not found errors in getPollById', async () => {
-      mockSupabaseClient.from.mockReturnValue({
-        select: jest.fn(() => ({
-          eq: jest.fn(() => ({
-            eq: jest.fn(() => ({
-              single: jest.fn(() => ({
-                data: null,
-                error: { message: 'Not found' },
-              })),
-            })),
-          })),
-        })),
+      const pollsQueryBuilder = createSupabaseQueryBuilder({
+        data: null,
+        error: { message: 'Not found' },
+      })
+
+      mockSupabaseClient.from.mockImplementation((tableName: string) => {
+        if (tableName === 'polls') {
+          return pollsQueryBuilder
+        }
+        return createSupabaseQueryBuilder()
       })
 
       const result = await getPollById('non-existent')
@@ -205,6 +262,7 @@ describe('Polls Actions - Basic Tests', () => {
 
   describe('Successful operations', () => {
     beforeEach(() => {
+      jest.clearAllMocks()
       mockSupabaseClient.auth.getUser.mockResolvedValue({
         data: { user: { id: 'user-123' } },
         error: null,
@@ -212,70 +270,86 @@ describe('Polls Actions - Basic Tests', () => {
     })
 
     it('should handle successful poll creation flow', async () => {
-      // Mock successful poll creation
-      mockSupabaseClient.from.mockReturnValue({
-        insert: jest.fn(() => ({
-          select: jest.fn(() => ({
-            single: jest.fn(() => ({
-              data: { id: 'poll-123', title: 'Test Poll' },
-              error: null,
-            })),
-          })),
-        })),
+      // Arrange
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: { id: 'user-123' } },
+        error: null,
       })
 
-      mockSupabaseClient.from.mockReturnValueOnce({
-        insert: jest.fn(() => ({
-          error: null,
-        })),
+      const mockPoll = { id: 'poll-123', title: 'Test Poll' }
+      const pollQueryBuilder = createSupabaseQueryBuilder({ data: mockPoll, error: null })
+      const optionsQueryBuilder = createSupabaseQueryBuilder({ error: null })
+
+      // Mock the from() method to return different builders based on table name
+      mockSupabaseClient.from.mockImplementation((tableName: string) => {
+        if (tableName === 'polls') {
+          return pollQueryBuilder
+        } else if (tableName === 'poll_options') {
+          return optionsQueryBuilder
+        }
+        return createSupabaseQueryBuilder()
       })
 
+      // Act
       const result = await createPoll({
         title: 'Test Poll',
         options: ['Option 1', 'Option 2'],
         isPublic: true,
       })
 
+      // Assert
       expect(result.success).toBe(true)
       expect(result.poll).toBeDefined()
     })
 
     it('should handle successful poll retrieval', async () => {
+      // Arrange
       const mockPolls = [
         { id: 'poll-1', title: 'Poll 1', total_votes: 0 },
         { id: 'poll-2', title: 'Poll 2', total_votes: 0 },
       ]
 
-      mockSupabaseClient.from.mockReturnValue({
-        select: jest.fn(() => ({
-          eq: jest.fn(() => ({
-            order: jest.fn(() => ({
-              data: mockPolls,
-              error: null,
-            })),
-          })),
-        })),
+      const pollsQueryBuilder = createSupabaseQueryBuilder({
+        data: mockPolls,
+        error: null
       })
 
+      // Mock for votes query (returns empty to avoid complex chaining)
+      const votesQueryBuilder = createSupabaseQueryBuilder({
+        data: [],
+        error: null
+      })
+
+      mockSupabaseClient.from.mockImplementation((tableName: string) => {
+        if (tableName === 'polls') {
+          return pollsQueryBuilder
+        } else if (tableName === 'votes') {
+          return votesQueryBuilder
+        }
+        return createSupabaseQueryBuilder()
+      })
+
+      // Act
       const result = await getPolls()
+
+      // Assert
       expect(result.polls).toHaveLength(2)
       expect(result.polls[0].title).toBe('Poll 1')
+      expect(result.polls[1].title).toBe('Poll 2')
     })
 
     it('should handle successful vote checking', async () => {
-      mockSupabaseClient.from.mockReturnValue({
-        select: jest.fn(() => ({
-          eq: jest.fn(() => ({
-            eq: jest.fn(() => ({
-              eq: jest.fn(() => ({
-                single: jest.fn(() => ({
-                  data: null,
-                  error: { code: 'PGRST116' }, // No rows
-                })),
-              })),
-            })),
-          })),
-        })),
+      // Use the improved query builder for proper method chaining
+      const votesQueryBuilder = createSupabaseQueryBuilder({
+        data: null,
+        error: { code: 'PGRST116' }, // No rows found (user hasn't voted)
+      })
+
+      mockSupabaseClient.from.mockImplementation((tableName: string) => {
+        if (tableName === 'votes') {
+          return votesQueryBuilder
+        }
+        return createSupabaseQueryBuilder()
       })
 
       const result = await hasUserVoted('poll-123', 'user-123')
