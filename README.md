@@ -43,23 +43,50 @@ app/
 │   ├── signup/         # Registration page
 │   └── profile/        # User profile management
 ├── polls/
-│   ├── [id]/           # Individual poll view (dynamic route)
+│   ├── [id]/
+│   │   ├── edit/       # Poll editing page (dynamic route)
+│   │   └── page.tsx    # Individual poll view (dynamic route)
 │   ├── create/         # Poll creation page
 │   └── page.tsx        # Polls listing page
+├── favicon.ico         # App favicon
 ├── globals.css         # Global styles and Tailwind imports
-├── layout.tsx          # Root layout
+├── layout.tsx          # Root layout with navigation
 └── page.tsx            # Landing/home page
 
 components/
-├── ui/                 # Shadcn UI components
+├── ui/                 # Shadcn UI reusable components
 ├── auth/               # Authentication-related components
-└── polls/              # Poll-related components
+├── polls/              # Poll-related components
+├── dashboard/
+│   └── RecentPolls.tsx # Dashboard poll components
+└── layout/
+    └── Header.tsx      # Navigation header
 
 types/
 └── index.ts           # TypeScript type definitions
 
 lib/
-└── utils.ts           # Utility functions
+├── actions/
+│   └── polls.ts       # Server actions for poll operations
+├── auth/
+│   └── context.tsx    # Authentication context and provider
+├── supabase/
+│   ├── client.ts      # Client-side Supabase client
+│   └── server.ts      # Server-side Supabase client
+├── toast.tsx          # Toast notification system
+└── utils.ts           # Shared utility functions
+
+__tests__/              # Test files directory
+├── integration/        # Integration tests
+└── lib/actions/        # Unit tests for server actions
+
+memory-bank/            # Project documentation and context
+├── activeContext.md    # Current work focus
+├── productContext.md   # Product vision and goals
+├── progress.md         # Development progress tracking
+├── projectbrief.md     # Core project requirements
+├── systemPatterns.md   # Architecture patterns
+└── techContext.md      # Technology stack details
 ```
 
 ## Getting Started
@@ -100,6 +127,21 @@ lib/
    - Add your development URL (e.g., `http://localhost:3000`)
    - Add your production URL when deploying
 
+### Database Setup
+
+1. **Initialize Supabase Database Schema**
+   - The database schema is defined in `supabase-schema.sql`
+   - Execute this file in your Supabase SQL editor to create all necessary tables, triggers, and policies
+   - For detailed schema documentation, see `DATABASE_SCHEMA_README.md`
+
+2. **Configure Environment Variables**
+   - Copy the environment variables from your Supabase project dashboard
+   - Create a `.env.local` file in the project root with the following variables:
+   ```bash
+   NEXT_PUBLIC_SUPABASE_URL=your-supabase-project-url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+   ```
+
 ### Installation
 
 1. Clone the repository:
@@ -117,7 +159,9 @@ yarn install
 pnpm install
 ```
 
-3. Run the development server:
+3. Set up environment variables (see Database Setup section above)
+
+4. Run the development server:
 ```bash
 npm run dev
 # or
@@ -126,7 +170,32 @@ yarn dev
 pnpm dev
 ```
 
-4. Open [http://localhost:3000](http://localhost:3000) in your browser.
+5. Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+## Testing
+
+The application includes comprehensive test coverage using Jest and React Testing Library.
+
+### Running Tests
+
+```bash
+# Run all tests once
+npm run test
+
+# Run tests in watch mode (recommended during development)
+npm run test:watch
+
+# Run tests with coverage report
+npm run test -- --coverage
+```
+
+### Test Structure
+
+- **Unit Tests**: Located in `__tests__/` directory
+  - `lib/actions/` - Server action tests
+  - `integration/` - End-to-end workflow tests
+- **Test Setup**: Configuration in `jest.config.js` and `jest.setup.js`
+- **Mocking**: Supabase client mocking for isolated testing
 
 ## Available Scripts
 
@@ -134,16 +203,25 @@ pnpm dev
 - `npm run build` - Build for production
 - `npm run start` - Start production server
 - `npm run lint` - Run ESLint
+- `npm run test` - Run Jest tests
+- `npm run test:watch` - Run tests in watch mode
 
 ## Key Routes
 
+### Authentication Routes
 - `/` - Landing page with navigation
-- `/auth/login` - User login
-- `/auth/signup` - User registration
-- `/auth/profile` - User profile
-- `/polls` - Browse all polls
-- `/polls/create` - Create new poll
-- `/polls/[id]` - View specific poll
+- `/auth/login` - User login page
+- `/auth/signup` - User registration page
+- `/auth/profile` - User profile management
+
+### Poll Routes
+- `/polls` - Browse all accessible polls
+- `/polls/create` - Create new poll form
+- `/polls/[id]` - View specific poll and vote
+- `/polls/[id]/edit` - Edit existing poll (owner only)
+
+### API Routes
+All data operations are handled through Next.js Server Actions rather than traditional API routes for improved security and performance.
 
 ## Type Definitions
 
@@ -155,17 +233,34 @@ The app uses TypeScript with comprehensive type definitions:
 - `Vote` - Vote records
 - `AuthState` - Authentication state
 
-## Next Steps
+## Architecture Overview
 
-This scaffold provides the foundation for a complete polling application. Future enhancements could include:
+### Core Architecture Patterns
 
-- Database integration (PostgreSQL, MongoDB)
-- Real-time updates with WebSockets
-- User authentication with JWT/Auth0
-- Poll analytics and insights
-- Social features (sharing, comments)
-- Admin dashboard
-- API routes for CRUD operations
+- **Server Components**: Data fetching and rendering on the server for optimal performance
+- **Server Actions**: Form submissions and mutations handled server-side for security
+- **Context-based Auth**: React Context manages authentication state across the application
+- **Type Safety**: Comprehensive TypeScript types ensure runtime safety
+
+### Key Libraries and Their Roles
+
+- **Next.js 15**: React framework with App Router for modern web development
+- **Supabase**: Backend-as-a-Service providing database, auth, and real-time features
+- **React Hook Form + Zod**: Client-side form validation with type-safe schemas
+- **Shadcn/UI + Tailwind**: Modern, accessible component library with utility-first styling
+
+## Future Enhancements
+
+The application provides a solid foundation for polling functionality. Potential enhancements include:
+
+- **Real-time Updates**: Live vote counting using Supabase real-time subscriptions
+- **QR Code Generation**: Generate QR codes for easy poll sharing (library already included)
+- **Poll Analytics**: Detailed voting patterns and user engagement metrics
+- **Social Features**: Poll sharing, comments, and user interactions
+- **Admin Dashboard**: Poll management and user administration tools
+- **Advanced Poll Types**: Multiple choice, ranked choice, and conditional questions
+- **Email Notifications**: Poll creation and result notifications
+- **Poll Templates**: Pre-built poll structures for common use cases
 
 ## Contributing
 

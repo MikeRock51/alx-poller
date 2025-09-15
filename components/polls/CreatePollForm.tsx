@@ -57,7 +57,8 @@ export function CreatePollForm({ onSuccess }: CreatePollFormProps) {
 
   const { fields, append, remove } = useFieldArray({
     control,
-    // @ts-ignore - TypeScript issue with react-hook-form useFieldArray
+    // @ts-ignore - react-hook-form useFieldArray has complex generic constraints
+    // that don't perfectly align with our form schema, but this works correctly at runtime
     name: "options",
   });
 
@@ -68,6 +69,7 @@ export function CreatePollForm({ onSuccess }: CreatePollFormProps) {
     setError(null);
 
     try {
+      // Transform form data to match server action interface
       const result = await createPoll({
         title: data.title,
         description: data.description,
@@ -81,31 +83,32 @@ export function CreatePollForm({ onSuccess }: CreatePollFormProps) {
         return;
       }
 
-      // Show success toast and navigate
+      // Handle successful poll creation
       if (result.success) {
         const pollData = {
           id: result.poll.id,
           title: result.poll.title
         };
 
-        // Reset form
+        // Reset form to initial state for potential additional poll creation
         setValue("title", "");
         setValue("description", "");
         setValue("options", ["", ""]);
         setValue("isPublic", true);
 
+        // Notify parent component of successful creation
         if (onSuccess) {
           onSuccess(pollData);
         }
 
-        // Show success toast
+        // Provide user feedback with success toast
         addToast({
           title: "Poll Created Successfully!",
           description: `Your poll "${result.poll.title}" has been created and is ready to share.`,
           type: "success"
         });
 
-        // Navigate to polls page after a short delay
+        // Delay navigation to allow user to see success feedback
         setTimeout(() => {
           router.push('/polls');
         }, 1500);
@@ -217,7 +220,8 @@ export function CreatePollForm({ onSuccess }: CreatePollFormProps) {
                   )}
                 </div>
               ))}
-              {errors.options && Array.isArray(errors.options) && errors.options.some((error) => error?.message) && (
+              {/* Display individual option validation errors */}
+            {errors.options && Array.isArray(errors.options) && errors.options.some((error) => error?.message) && (
                 <div className="space-y-1">
                   {errors.options.map((error, index) => (
                     error?.message && (
