@@ -25,6 +25,7 @@ interface CommentFormProps {
   onCancel?: () => void;
   placeholder?: string;
   autoFocus?: boolean;
+  userId?: string;
 }
 
 export function CommentForm({
@@ -33,7 +34,8 @@ export function CommentForm({
   onCommentAdded,
   onCancel,
   placeholder = "Share your thoughts...",
-  autoFocus = false
+  autoFocus = false,
+  userId
 }: CommentFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +60,13 @@ export function CommentForm({
         parentId,
       };
 
-      const { comment, error } = await createComment(formData, "current-user-id"); // TODO: Replace with actual authenticated user ID from auth context
+      if (!userId) {
+        setError("You must be logged in to comment.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      const { comment, error } = await createComment(formData, userId);
 
       if (error) {
         setError(error);

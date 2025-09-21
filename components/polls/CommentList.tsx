@@ -8,6 +8,7 @@ import { CommentForm } from "./CommentForm";
 import { Comment } from "./Comment";
 import { getPollComments, deleteComment } from "@/lib/actions/comments";
 import type { Comment as CommentType } from "@/types";
+import { useAuth } from "@/lib/auth/context";
 
 interface CommentListProps {
   pollId: string;
@@ -15,6 +16,7 @@ interface CommentListProps {
 }
 
 export function CommentList({ pollId, className = "" }: CommentListProps) {
+  const { user } = useAuth();
   const [comments, setComments] = useState<CommentType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -76,7 +78,12 @@ export function CommentList({ pollId, className = "" }: CommentListProps) {
 
   const handleDelete = async (commentId: string) => {
     try {
-      const { success, error } = await deleteComment(commentId, "current-user-id"); // TODO: Replace with actual authenticated user ID from auth context
+      if (!user?.id) {
+        setError("You must be logged in to delete comments.");
+        return;
+      }
+
+      const { success, error } = await deleteComment(commentId, user.id);
       if (!success) {
         setError(error || "Failed to delete comment");
       } else {
@@ -142,6 +149,7 @@ export function CommentList({ pollId, className = "" }: CommentListProps) {
         {showCommentForm && (
           <CommentForm
             pollId={pollId}
+            userId={user?.id}
             onCommentAdded={handleCommentAdded}
             onCancel={() => setShowCommentForm(false)}
             autoFocus

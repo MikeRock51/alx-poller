@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { CommentForm } from "./CommentForm";
 import type { Comment as CommentType } from "@/types";
+import { useAuth } from "@/lib/auth/context";
 
 interface CommentProps {
   comment: CommentType;
@@ -39,6 +40,7 @@ export function Comment({
   depth = 0,
   maxDepth = 3
 }: CommentProps) {
+  const { user } = useAuth();
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [showReplies, setShowReplies] = useState(depth < maxDepth);
   const [isDeleted, setIsDeleted] = useState(comment.isDeleted);
@@ -80,7 +82,7 @@ export function Comment({
       .slice(0, 2);
   };
 
-  const isAuthor = comment.author?.id === "current-user-id"; // TODO: Replace with actual authenticated user ID from auth context
+  const isAuthor = !!user && comment.author?.id === user.id;
 
   return (
     <div className={`space-y-3 ${depth > 0 ? 'ml-6 border-l-2 border-gray-200 pl-4' : ''}`}>
@@ -168,6 +170,7 @@ export function Comment({
                   <CommentForm
                     pollId={comment.pollId}
                     parentId={comment.id}
+                    userId={user?.id}
                     onCommentAdded={() => setShowReplyForm(false)}
                     onCancel={() => setShowReplyForm(false)}
                     placeholder={`Reply to ${comment.author?.name || "Anonymous"}...`}
