@@ -171,6 +171,8 @@ export function Comment({
                     pollId={comment.pollId}
                     parentId={comment.id}
                     userId={user?.id}
+                    authorEmail={user?.email || undefined}
+                    authorName={(user?.user_metadata as any)?.name || undefined}
                     onCommentAdded={() => setShowReplyForm(false)}
                     onCancel={() => setShowReplyForm(false)}
                     placeholder={`Reply to ${comment.author?.name || "Anonymous"}...`}

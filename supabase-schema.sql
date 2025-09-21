@@ -70,6 +70,9 @@ CREATE TABLE comments (
     poll_id UUID NOT NULL REFERENCES polls(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     content TEXT NOT NULL CHECK (length(trim(content)) > 0),
+    author_email TEXT,
+    author_name TEXT,
+    author_avatar_url TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     parent_id UUID REFERENCES comments(id) ON DELETE CASCADE,
@@ -449,7 +452,7 @@ CROSS JOIN (SELECT id FROM polls WHERE title = 'What''s your favorite programmin
 COMMENT ON TABLE polls IS 'Stores poll information and metadata';
 COMMENT ON TABLE poll_options IS 'Stores voting options for each poll';
 COMMENT ON TABLE votes IS 'Stores user votes on poll options';
-COMMENT ON TABLE comments IS 'Stores discussion comments on polls';
+COMMENT ON TABLE comments IS 'Stores discussion comments on polls (denormalized author data cached)';
 COMMENT ON VIEW poll_results IS 'Aggregated view of polls with vote counts';
 COMMENT ON VIEW user_poll_participation IS 'View of user voting history';
 

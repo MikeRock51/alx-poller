@@ -26,6 +26,9 @@ interface CommentFormProps {
   placeholder?: string;
   autoFocus?: boolean;
   userId?: string;
+  authorEmail?: string;
+  authorName?: string;
+  authorAvatarUrl?: string;
 }
 
 export function CommentForm({
@@ -35,7 +38,10 @@ export function CommentForm({
   onCancel,
   placeholder = "Share your thoughts...",
   autoFocus = false,
-  userId
+  userId,
+  authorEmail,
+  authorName,
+  authorAvatarUrl
 }: CommentFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +72,11 @@ export function CommentForm({
         return;
       }
 
-      const { comment, error } = await createComment(formData, userId);
+      const { comment, error } = await createComment(
+        formData,
+        userId,
+        { email: authorEmail, name: authorName, avatarUrl: authorAvatarUrl }
+      );
 
       if (error) {
         setError(error);

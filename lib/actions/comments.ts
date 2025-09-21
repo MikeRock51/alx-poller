@@ -39,8 +39,8 @@ export async function getPollComments(pollId: string): Promise<{ comments: Comme
       isDeleted: comment.is_deleted,
       author: {
         id: comment.user_id,
-        email: "user@example.com", // TODO: Get actual user email from auth context
-        name: "Anonymous", // TODO: Get actual user name from auth context
+        email: comment.author_email || undefined,
+        name: comment.author_name || undefined,
         createdAt: new Date(comment.created_at),
       },
     }));
@@ -80,7 +80,8 @@ export async function getPollComments(pollId: string): Promise<{ comments: Comme
  */
 export async function createComment(
   formData: CreateCommentFormData,
-  userId: string
+  userId: string,
+  author?: { email?: string; name?: string; avatarUrl?: string }
 ): Promise<{ comment?: Comment; error?: string }> {
   try {
     const supabase = await createClient();
@@ -92,6 +93,9 @@ export async function createComment(
         user_id: userId,
         content: formData.content,
         parent_id: formData.parentId || null,
+        author_email: author?.email || null,
+        author_name: author?.name || null,
+        author_avatar_url: author?.avatarUrl || null,
       })
       .select(`
         *
@@ -115,8 +119,8 @@ export async function createComment(
       isDeleted: comment.is_deleted,
       author: {
         id: comment.user_id,
-        email: "user@example.com", // TODO: Get actual user email from auth context
-        name: "Anonymous", // TODO: Get actual user name from auth context
+        email: comment.author_email || undefined,
+        name: comment.author_name || undefined,
         createdAt: new Date(comment.created_at),
       },
       replies: [],

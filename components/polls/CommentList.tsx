@@ -150,6 +150,8 @@ export function CommentList({ pollId, className = "" }: CommentListProps) {
           <CommentForm
             pollId={pollId}
             userId={user?.id}
+            authorEmail={user?.email || undefined}
+            authorName={(user?.user_metadata as any)?.name || undefined}
             onCommentAdded={handleCommentAdded}
             onCancel={() => setShowCommentForm(false)}
             autoFocus

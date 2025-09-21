@@ -278,6 +278,12 @@ export interface DatabaseComment {
   user_id: string;
   /** Content of the comment */
   content: string;
+  /** Cached author email at time of comment */
+  author_email: string | null;
+  /** Cached author display name at time of comment */
+  author_name: string | null;
+  /** Cached author avatar URL at time of comment */
+  author_avatar_url: string | null;
   /** Creation timestamp (ISO string) */
   created_at: string;
   /** Last update timestamp (ISO string) */
