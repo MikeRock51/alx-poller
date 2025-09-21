@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PollResultsChart } from "./PollResultsChart";
+import { CommentList } from "./CommentList";
 import type { Poll } from "@/types";
 
 interface PollVotingClientProps {
@@ -35,17 +36,14 @@ export function PollVotingClient({ poll, hasUserVoted = false, currentUserId }: 
         // Optionally refresh the page to show updated results
         window.location.reload();
       }
-    } catch (err) {
+    } catch (_err) {
       setError("Failed to submit vote. Please try again.");
     } finally {
       setIsVoting(false);
     }
   };
 
-  const getVotePercentage = (votes: number) => {
-    if (poll.totalVotes === 0) return 0;
-    return Math.round((votes / poll.totalVotes) * 100);
-  };
+  // Note: getVotePercentage function removed as it's no longer used with the chart component
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
@@ -83,7 +81,7 @@ export function PollVotingClient({ poll, hasUserVoted = false, currentUserId }: 
                 </a>
               </div>
             ) : !voted ? (
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <div className="space-y-2">
                   {poll.options.map((option) => (
                     <label key={option.id} className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
@@ -98,6 +96,7 @@ export function PollVotingClient({ poll, hasUserVoted = false, currentUserId }: 
                     </label>
                   ))}
                 </div>
+                <CommentList pollId={poll.id} />
                 <Button
                   onClick={handleVote}
                   disabled={!selectedOption || isVoting || !poll.isActive}
@@ -112,11 +111,12 @@ export function PollVotingClient({ poll, hasUserVoted = false, currentUserId }: 
                 )}
               </div>
             ) : (
-              <div className="space-y-6">
+              <div className="space-y-8">
                 <PollResultsChart
                   options={poll.options}
                   totalVotes={poll.totalVotes}
                 />
+                <CommentList pollId={poll.id} />
                 <div className="flex justify-center">
                   <Button
                     onClick={() => setVoted(false)}

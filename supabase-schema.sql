@@ -61,6 +61,25 @@ CREATE TABLE votes (
 );
 
 -- ============================================================================
+-- COMMENTS TABLE
+-- Stores discussion comments on polls
+-- ============================================================================
+
+CREATE TABLE comments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    poll_id UUID NOT NULL REFERENCES polls(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    content TEXT NOT NULL CHECK (length(trim(content)) > 0),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    parent_id UUID REFERENCES comments(id) ON DELETE CASCADE,
+    is_deleted BOOLEAN NOT NULL DEFAULT false,
+
+    -- Prevent self-referencing parent
+    CONSTRAINT comments_no_self_reference CHECK (id != parent_id)
+);
+
+-- ============================================================================
 -- INDEXES FOR PERFORMANCE
 -- ============================================================================
 
@@ -81,6 +100,13 @@ CREATE INDEX idx_votes_option_id ON votes(option_id);
 CREATE INDEX idx_votes_user_id ON votes(user_id);
 CREATE INDEX idx_votes_created_at ON votes(created_at DESC);
 CREATE INDEX idx_votes_poll_user ON votes(poll_id, user_id);
+
+-- Comments table indexes
+CREATE INDEX idx_comments_poll_id ON comments(poll_id);
+CREATE INDEX idx_comments_user_id ON comments(user_id);
+CREATE INDEX idx_comments_created_at ON comments(created_at DESC);
+CREATE INDEX idx_comments_parent_id ON comments(parent_id);
+CREATE INDEX idx_comments_poll_created ON comments(poll_id, created_at DESC);
 
 -- ============================================================================
 -- TRIGGER FUNCTIONS
@@ -135,6 +161,11 @@ CREATE TRIGGER update_polls_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
+CREATE TRIGGER update_comments_updated_at
+    BEFORE UPDATE ON comments
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
 CREATE TRIGGER validate_vote_before_insert_update
     BEFORE INSERT OR UPDATE ON votes
     FOR EACH ROW
@@ -148,6 +179,7 @@ CREATE TRIGGER validate_vote_before_insert_update
 ALTER TABLE polls ENABLE ROW LEVEL SECURITY;
 ALTER TABLE poll_options ENABLE ROW LEVEL SECURITY;
 ALTER TABLE votes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
 
 -- POLLS POLICIES
 
@@ -256,6 +288,51 @@ CREATE POLICY "Users can only see their own votes in private polls"
             AND is_public = true
         )
     );
+
+-- COMMENTS POLICIES
+
+-- Users can view comments for polls they can access
+CREATE POLICY "Users can view comments for accessible polls"
+    ON comments FOR SELECT
+    USING (
+        NOT is_deleted
+        AND EXISTS (
+            SELECT 1 FROM polls
+            WHERE id = poll_id
+            AND (
+                is_public = true AND is_active = true
+                OR created_by = auth.uid()
+            )
+        )
+    );
+
+-- Users can create comments on polls they can access
+CREATE POLICY "Users can create comments on accessible polls"
+    ON comments FOR INSERT
+    WITH CHECK (
+        auth.uid() = user_id
+        AND EXISTS (
+            SELECT 1 FROM polls
+            WHERE id = poll_id
+            AND is_active = true
+            AND (
+                is_public = true
+                OR created_by = auth.uid()
+            )
+        )
+    );
+
+-- Users can update their own comments
+CREATE POLICY "Users can update their own comments"
+    ON comments FOR UPDATE
+    USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
+
+-- Users can delete their own comments (soft delete)
+CREATE POLICY "Users can delete their own comments"
+    ON comments FOR UPDATE
+    USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
 
 -- ============================================================================
 -- USEFUL VIEWS
@@ -372,6 +449,7 @@ CROSS JOIN (SELECT id FROM polls WHERE title = 'What''s your favorite programmin
 COMMENT ON TABLE polls IS 'Stores poll information and metadata';
 COMMENT ON TABLE poll_options IS 'Stores voting options for each poll';
 COMMENT ON TABLE votes IS 'Stores user votes on poll options';
+COMMENT ON TABLE comments IS 'Stores discussion comments on polls';
 COMMENT ON VIEW poll_results IS 'Aggregated view of polls with vote counts';
 COMMENT ON VIEW user_poll_participation IS 'View of user voting history';
 

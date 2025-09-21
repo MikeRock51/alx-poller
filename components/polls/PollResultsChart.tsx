@@ -29,7 +29,7 @@ export function PollResultsChart({ options, totalVotes, className = "" }: PollRe
     color: COLORS[index % COLORS.length],
   }));
 
-  const CustomTooltip = ({ active, payload }: any) => {
+  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: { name: string; votes: number; percentage: number } }> }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (

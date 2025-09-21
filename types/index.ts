@@ -94,6 +94,57 @@ export interface Vote {
 }
 
 /**
+ * Represents a comment on a poll.
+ *
+ * Comments allow users to discuss polls and share their thoughts.
+ * Comments support threaded discussions through parent_id references.
+ */
+export interface Comment {
+  /** Unique identifier for the comment */
+  id: string;
+  /** ID of the poll this comment belongs to */
+  pollId: string;
+  /** ID of the user who wrote this comment */
+  userId: string;
+  /** Content of the comment */
+  content: string;
+  /** When this comment was created */
+  createdAt: Date;
+  /** When this comment was last updated */
+  updatedAt: Date;
+  /** ID of the parent comment (for threaded replies) */
+  parentId?: string;
+  /** Whether this comment has been soft-deleted */
+  isDeleted: boolean;
+  /** Author information (populated from auth.users) */
+  author?: User;
+  /** Nested replies to this comment */
+  replies?: Comment[];
+}
+
+/**
+ * Form data structure for creating new comments.
+ *
+ * This interface defines the shape of data submitted through comment forms.
+ */
+export interface CreateCommentFormData {
+  /** Content of the comment */
+  content: string;
+  /** ID of the poll this comment belongs to */
+  pollId: string;
+  /** Optional parent comment ID for replies */
+  parentId?: string;
+}
+
+/**
+ * Form data structure for updating existing comments.
+ */
+export interface UpdateCommentFormData {
+  /** Updated content of the comment */
+  content: string;
+}
+
+/**
  * Form data structure for creating new polls.
  *
  * This interface defines the shape of data submitted through poll creation forms.
@@ -210,4 +261,29 @@ export interface DatabaseVote {
   created_at: string;
   /** Optional IP address for analytics (null allowed) */
   ip_address: string | null;
+}
+
+/**
+ * Database representation of a comment record.
+ *
+ * This matches the structure of records in the comments table,
+ * storing discussion comments on polls.
+ */
+export interface DatabaseComment {
+  /** Unique identifier (UUID) */
+  id: string;
+  /** ID of the poll this comment belongs to */
+  poll_id: string;
+  /** ID of the user who wrote this comment */
+  user_id: string;
+  /** Content of the comment */
+  content: string;
+  /** Creation timestamp (ISO string) */
+  created_at: string;
+  /** Last update timestamp (ISO string) */
+  updated_at: string;
+  /** ID of the parent comment (null for top-level comments) */
+  parent_id: string | null;
+  /** Whether this comment has been soft-deleted */
+  is_deleted: boolean;
 }
