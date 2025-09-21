@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PollResultsChart } from "./PollResultsChart";
 import type { Poll } from "@/types";
 
 interface PollVotingClientProps {
@@ -111,29 +112,20 @@ export function PollVotingClient({ poll, hasUserVoted = false, currentUserId }: 
                 )}
               </div>
             ) : (
-              <div className="space-y-4">
-                <h3 className="font-semibold text-lg">Results</h3>
-                {poll.options.map((option) => (
-                  <div key={option.id} className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>{option.optionText}</span>
-                      <span>{option.votes} votes ({getVotePercentage(option.votes)}%)</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-blue-600 h-2 rounded-full transition-all duration-500"
-                        style={{ width: `${getVotePercentage(option.votes)}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                ))}
-                <Button
-                  onClick={() => setVoted(false)}
-                  variant="outline"
-                  className="w-full mt-4"
-                >
-                  Vote Again
-                </Button>
+              <div className="space-y-6">
+                <PollResultsChart
+                  options={poll.options}
+                  totalVotes={poll.totalVotes}
+                />
+                <div className="flex justify-center">
+                  <Button
+                    onClick={() => setVoted(false)}
+                    variant="outline"
+                    className="px-6"
+                  >
+                    Vote Again
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>
